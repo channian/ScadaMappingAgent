@@ -1,7 +1,7 @@
 # SCADA Mapping Agent — 專案設計說明
 
 > 文件建立日期：2026-05-28
-> 狀態：架構設計中，前端由使用者準備，後端待實作
+> 狀態：架構設計確認中，前端已備妥，後端待實作
 
 ---
 
@@ -72,39 +72,64 @@ ScadaMappingAgent/
 
 ---
 
-## 五、資料庫設計（SQLite）
+## 五、資料庫設計
 
-### Table 1：`system_permissions` — 系統使用權限清單（新建）
+### 決策：`system_permissions` 存放於 SQLite（本地）
 
-> 與原始員工 table 分開維護，只記錄「被授權使用本系統」的工號。
+原因：
+- 此表為本系統專屬，不需動到公司員工資料庫結構
+- Admin 透過網頁即可維護，無需 DB 管理工具
+- 查詢流程：SQLite 卡權限 → 員工 DB 取 email，兩步但邏輯清楚
+
+---
+
+### Table 1：`system_permissions` — 系統使用權限清單（SQLite，新建）
+
+> 只存「被授權使用本系統」的工號，姓名 / 信箱 / 部門從員工 table 同步取得。
 
 | 欄位 | 型別 | 說明 |
 |------|------|------|
 | employee_id | TEXT (PK) | 工號，對應原始員工 table |
 | is_admin | INTEGER | 1 = 管理員，0 = 一般工程師 |
 | can_upload | INTEGER | 1 = 有上傳權限，0 = 無 |
+| status | TEXT | `active` / `pending` / `suspended` |
+| last_login | TEXT | 最後登入時間（ISO 格式，nullable） |
+| created_at | TEXT | 新增時間（ISO 格式） |
+
+角色對應：
+
+| is_admin | can_upload | 對應角色 | 說明 |
+|----------|------------|----------|------|
+| 1 | 1 | admin | 管理員，可上傳 + 管理帳號 |
+| 0 | 1 | uploader | 一般工程師，可上傳查詢 |
+
+> `is_admin=0, can_upload=0` 不應存在於此表（無任何權限即不新增）。
 
 範例資料：
 ```
-employee_id | is_admin | can_upload
-A001        |    1     |     1      ← 管理員，可上傳
-B002        |    0     |     1      ← 一般工程師，可上傳
-C003        |    0     |     0      ← 無任何功能權限（不應存在，或保留供未來擴充）
+employee_id | is_admin | can_upload | status  | last_login           | created_at
+A001        |    1     |     1      | active  | 2026-05-28T14:30:00  | 2024-03-12T00:00:00
+B002        |    0     |     1      | active  | 2026-05-27T09:14:00  | 2025-01-22T00:00:00
+C003        |    0     |     1      | pending | NULL                 | 2026-05-25T00:00:00
 ```
 
-### Table 2：`otp_sessions` — 暫存 OTP（新建，取代舊 `users` table）
+---
+
+### Table 2：`otp_sessions` — 暫存 OTP（SQLite，新建，取代舊 `users` table）
 
 | 欄位 | 型別 | 說明 |
 |------|------|------|
 | employee_id | TEXT (PK) | 工號 |
-| otp | TEXT | 一次性密碼 |
-| expires_at | TEXT | 過期時間（ISO 格式），建議 15 分鐘 |
+| otp | TEXT | 6 位數字一次性密碼 |
+| expires_at | TEXT | 過期時間（ISO 格式），有效期 10 分鐘 |
 
 > 驗證成功後立即刪除該筆資料，確保 OTP 僅能使用一次。
 
+---
+
 ### 原始員工 Table（唯讀，不修改）
 
-> 由同事提供，欄位含工號、email 等資訊，本系統只做查詢。
+> 由同事提供，欄位含工號、email 等資訊，本系統只做查詢。待確認欄位名稱後補充。
 
 ---
 
@@ -139,8 +164,10 @@ C003        |    0     |     0      ← 無任何功能權限（不應存在，�
 | GET | `/` | 上傳頁面（uploader / admin） | 需登入 |
 | POST | `/receive_file` | 上傳並處理 tag 檔案 | 需登入 + can_upload |
 | GET | `/admin` | 帳號管理頁面 | 需登入 + is_admin |
-| POST | `/admin/add_user` | 新增使用者權限 | 需登入 + is_admin |
-| POST | `/admin/remove_user` | 移除使用者權限 | 需登入 + is_admin |
+| POST | `/admin/add_user` | 新增單筆或批次工號 | 需登入 + is_admin |
+| POST | `/admin/update_user` | 更新角色 / 狀態 | 需登入 + is_admin |
+| POST | `/admin/remove_user` | 移除工號（單筆或批次） | 需登入 + is_admin |
+| GET  | `/admin/export_csv` | 匯出帳號清單 CSV | 需登入 + is_admin |
 | POST | `/logout` | 登出，清除 Session | 需登入 |
 
 ---
@@ -178,14 +205,18 @@ C003        |    0     |     0      ← 無任何功能權限（不應存在，�
 
 ## 十、待辦事項（實作順序建議）
 
-- [ ] 確認原始員工 table 的欄位名稱與資料庫位置
-- [ ] 取得 SMTP server 資訊（由同事提供程式碼）
-- [ ] 前端 HTML 備妥後，核對路由與欄位
+- [x] 確認 `system_permissions` 存放於 SQLite
+- [x] 確認 2 種角色：admin / uploader
+- [x] SMTP 寄信程式碼（`mail_sample.py`）已備妥
+- [x] 前端頁面（`sigma-login.jsx`、`sigma-upload.jsx`、`sigma-admin.jsx`）已備妥
+- [ ] 確認原始員工 table 的欄位名稱與連線資訊
+- [ ] 前端角色調整：移除 `viewer` 角色，改為 `admin` / `uploader` 兩種
 - [ ] 建立 `system_permissions` 與 `otp_sessions` table
-- [ ] 實作 `/request_otp` 與 `/verify_otp`
-- [ ] 加入所有路由的登入 + 權限驗證
-- [ ] 實作結果下載功能
-- [ ] 實作 admin 帳號管理頁面
+- [ ] 實作 `/request_otp`（查權限 → 查 email → 產生 OTP → 寄信）
+- [ ] 實作 `/verify_otp`（驗證 OTP → 建立 Session → 導向頁面）
+- [ ] 加入所有路由的登入 + 權限驗證裝飾器
+- [ ] 實作 `/receive_file`（補上登入驗證、回傳結果、提供下載）
+- [ ] 實作 admin 帳號管理路由（新增、更新、移除、匯出）
 
 ---
 
@@ -205,7 +236,7 @@ smtplib / email     # 寄信（SMTP，程式碼由同事提供）
 
 ## 十二、安全性注意事項
 
-- OTP 有效期限 15 分鐘，過期自動失效
+- OTP 有效期限 10 分鐘（與前端 UI 一致），過期自動失效
 - Session timeout 30 分鐘
 - 登入成功後立即刪除 OTP，防止重複使用
 - 無權限工號統一回覆「您沒有使用權限」，不揭露是否存在於員工 table
