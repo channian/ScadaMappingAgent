@@ -129,7 +129,15 @@ C003        |    0     |     1      | pending | NULL                 | 2026-05-2
 
 ### 原始員工 Table（唯讀，不修改）
 
-> 由同事提供，欄位含工號、email 等資訊，本系統只做查詢。待確認欄位名稱後補充。
+> 公司既有資料，本系統只做查詢，不寫入。
+
+| 欄位 | 說明 | 本系統用途 |
+|------|------|-----------|
+| `empno` | 工號 | 對應 `system_permissions.employee_id`，作為查詢 key |
+| `empname` | 姓名 | Admin 頁面顯示用 |
+| `email` | 信箱 | 寄送 OTP |
+| `department_code` | 部門代碼 | 備用（可作篩選條件） |
+| `department_name` | 部門名稱 | Admin 頁面部門欄位顯示用 |
 
 ---
 
@@ -209,7 +217,7 @@ C003        |    0     |     1      | pending | NULL                 | 2026-05-2
 - [x] 確認 2 種角色：admin / uploader
 - [x] SMTP 寄信程式碼（`mail_sample.py`）已備妥
 - [x] 前端頁面（`sigma-login.jsx`、`sigma-upload.jsx`、`sigma-admin.jsx`）已備妥
-- [ ] 確認原始員工 table 的欄位名稱與連線資訊
+- [x] 確認原始員工 table 欄位：`empno` / `empname` / `email` / `department_code` / `department_name`
 - [ ] 前端角色調整：移除 `viewer` 角色，改為 `admin` / `uploader` 兩種
 - [ ] 建立 `system_permissions` 與 `otp_sessions` table
 - [ ] 實作 `/request_otp`（查權限 → 查 email → 產生 OTP → 寄信）
