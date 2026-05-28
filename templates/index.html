@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>SIGMA TAG · SCADA → Kepware Tag Converter</title>
+<meta name="viewport" content="width=1440" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='sigma.css') }}" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="{{ url_for('static', filename='primitives.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='sigma-login.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='sigma-upload.jsx') }}"></script>
+<script type="text/babel" src="{{ url_for('static', filename='sigma-admin.jsx') }}"></script>
+<script type="text/babel">
+const { useState } = React;
+
+function App() {
+  const [view, setView] = useState('login');
+  const [user, setUser] = useState(null);
+
+  const handleLogout = async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    setUser(null);
+    setView('login');
+  };
+
+  if (view === 'login') {
+    return <SigmaLogin onSuccess={(u) => { setUser(u); setView('upload'); }} />;
+  }
+  if (view === 'admin') {
+    return <SigmaAdmin user={user} onNavigate={setView} onLogout={handleLogout} />;
+  }
+  return <SigmaUpload user={user} onNavigate={setView} onLogout={handleLogout} />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
