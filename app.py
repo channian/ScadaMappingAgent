@@ -71,6 +71,21 @@ def index():
 
 # ── auth API ──────────────────────────────────────────────────────────────────
 
+@app.route('/api/session')
+def get_session():
+    if 'employee_id' not in session:
+        return jsonify({'user': None})
+    return jsonify({
+        'user': {
+            'empId':      session['employee_id'],
+            'name':       session.get('name', ''),
+            'email':      session.get('email', ''),
+            'is_admin':   session.get('is_admin', 0),
+            'can_upload': session.get('can_upload', 0),
+        }
+    })
+
+
 @app.route('/api/request_otp', methods=['POST'])
 def request_otp():
     cleanup_expired_otps()

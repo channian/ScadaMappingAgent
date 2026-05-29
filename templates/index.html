@@ -19,17 +19,41 @@
 <script type="text/babel" src="{{ url_for('static', filename='sigma-upload.jsx') }}"></script>
 <script type="text/babel" src="{{ url_for('static', filename='sigma-admin.jsx') }}"></script>
 <script type="text/babel">
-const { useState } = React;
+const { useState, useEffect } = React;
 
 function App() {
   const [view, setView] = useState('login');
   const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/session')
+      .then(r => r.json())
+      .then(data => {
+        if (data.user) {
+          setUser(data.user);
+          setView('upload');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, []);
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
     setUser(null);
     setView('login');
   };
+
+  if (checking) {
+    return (
+      <div style={{display:'flex',alignItems:'center',justifyContent:'center',
+                   height:'100vh',color:'var(--fg-3)',fontFamily:'var(--font-mono)',
+                   fontSize:13,letterSpacing:'.05em',background:'var(--bg-1)'}}>
+        SIGMA TAG · 載入中…
+      </div>
+    );
+  }
 
   if (view === 'login') {
     return <SigmaLogin onSuccess={(u) => { setUser(u); setView('upload'); }} />;
