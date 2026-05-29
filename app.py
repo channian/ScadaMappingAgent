@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request, send_file, session
 
 from lib.auth import admin_required, login_required, upload_required
-from lib.db_init import get_sqlite_conn, init_db
+from lib.db_init import ensure_default_admin, get_sqlite_conn, init_db
 from lib.employee_service import get_employee_by_empno, get_employees_batch
 from lib.otp_service import cleanup_expired_otps, generate_otp, store_otp, verify_otp_code
 from mail_sample import EmailService
@@ -25,6 +25,7 @@ os.makedirs(TMP_DIR, exist_ok=True)
 os.makedirs('./database', exist_ok=True)
 
 init_db()
+ensure_default_admin()
 
 logging.basicConfig(level=logging.INFO)
 

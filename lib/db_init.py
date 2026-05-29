@@ -1,7 +1,11 @@
+import logging
+import os
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 DB_PATH = './database/sigma_tag.db'
+log = logging.getLogger(__name__)
 
 
 def get_sqlite_conn():
@@ -29,4 +33,29 @@ def init_db():
         );
     """)
     conn.commit()
+    conn.close()
+
+
+def ensure_default_admin():
+    empno = os.environ.get('DEFAULT_ADMIN_EMPNO', '').strip().upper()
+    if not empno:
+        return
+
+    conn = get_sqlite_conn()
+    exists = conn.execute(
+        'SELECT 1 FROM system_permissions WHERE employee_id = ?', (empno,)
+    ).fetchone()
+
+    if not exists:
+        conn.execute(
+            'INSERT INTO system_permissions '
+            '(employee_id, is_admin, can_upload, status, last_login, created_at) '
+            'VALUES (?, 1, 1, ?, NULL, ?)',
+            (empno, 'active', datetime.now().isoformat())
+        )
+        conn.commit()
+        log.info('預設管理員 %s 已自動建立', empno)
+    else:
+        log.info('預設管理員 %s 已存在，略過建立', empno)
+
     conn.close()
